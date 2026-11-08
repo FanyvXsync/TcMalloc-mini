@@ -36,6 +36,12 @@ public:
         return ret;
     }
 
+    bool Empty()
+    {
+        return _freeList == nullptr;
+    }
+
+
 private:
     void* _freeList = nullptr;
 };
