@@ -9,6 +9,9 @@ using std::endl;
 
 const static size_t MAX_BYTES = 256 * 1024;
 const static size_t NFREELIST = 208;
+const static size_t NPAGES = 129;
+const static size_t PAGE_SHIFT = 13;
+
 
 #ifdef _WIN64
     typedef unsigned long long PAGE_ID;
@@ -181,6 +184,20 @@ public:
         return num;
     }
 
+
+    static size_t NumMovePage(size_t size)
+    {
+        size_t num = NumMoveSize(size); // ? 为什么 不是取小了一次吗
+        size_t npage = size * num;
+
+        npage >>= PAGE_SHIFT;
+        if(npage == 0) 
+            npage = 1;
+        //
+        return npage;
+    }   
+
+
 };
 
 struct Span
@@ -228,6 +245,25 @@ public:
         prev->_next = pos->_next;
         pos->_next->_prev = prev;
 
+    }
+
+    void PushFront(Span* span)
+    {
+        Span* next = _head->_next;
+        span->_next = next;
+        
+        next->_prev = span;
+        span->_prev = _head;
+    }
+
+    Span* Begin()
+    {
+        return _head->_next;
+    }
+
+    Span* End()
+    {
+        return _head->_prev;
     }
 
 private:

@@ -1,4 +1,5 @@
 #include "Threadcache.hpp"
+#include "Centralcache.hpp"
 
 void* ThreadCache::Allocate(size_t size)
 {
@@ -39,17 +40,17 @@ void* ThreadCache::FetachFromCentralCache(size_t index, size_t size)
     void* end = nullptr;
 
     size_t actualNum = CentralCache::GetInstance()->FetchRangeObj(start, end, batchNum, size);
-    assert(actualNum >= 1);
+    assert(actualNum > 0);
 
     if(actualNum == 1)
     {
         assert(start == end);
-        _freeList[index].PushFront(start); // ?
+         // ?
         return start;
     }
     else
     {
-        _freeList[index].PushRange(start, end); // ?
+        _freeList[index].PushRange(NextObj(start), end); 
         return start;
     }
 
