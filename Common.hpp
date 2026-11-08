@@ -2,12 +2,23 @@
 #include <iostream>
 #include <assert.h>
 #include <vector>
+#include <mutex>
 
 using std::cout;
 using std::endl;
 
 const static size_t MAX_BYTES = 256 * 1024;
 const static size_t NFREELIST = 208;
+
+#ifdef _WIN64
+    typedef unsigned long long PAGE_ID;
+#elif _WIN32
+    typedef size_t PAGE_ID;
+#else
+//
+#endif
+
+
 
 static void*& NextObj(void* ptr)  // 加 static 防链接错误
 {
@@ -33,6 +44,7 @@ public:
 
         void* ret = _freeList;
         _freeList = NextObj(_freeList);
+        
         return ret;
     }
 
@@ -41,9 +53,21 @@ public:
         return _freeList == nullptr;
     }
 
+    size_t& MaxSize()
+    {
+        return _maxSize;
+    }
+
+    void PushRange(void* start, void* end)
+    {
+        NextObj(end) = _freeList;
+        _freeList = start;
+    }
+
 
 private:
     void* _freeList = nullptr;
+    size_t _maxSize = 1;  // 慢启动的时候去调节的
 };
 
 // 计算对象大小 对齐
@@ -140,4 +164,75 @@ public:
         return -1;
     }
 
+    static size_t NumMoveSize(size_t size)
+    {
+        assert(size > 0);   // [2, 512]
+
+        int num = MAX_BYTES / size;
+        // 小对象 批量一次上限高
+        // 大对象 批量一次上限低`
+        
+        
+        if(num < 2)
+            num = 2;
+        //
+        if(num > 512)
+            num = 512;
+        return num;
+    }
+
 };
+
+struct Span
+{
+    PAGE_ID _pageId = 0; // 大块内存起始页的页号
+    size_t _n = 0;       // span 管理的页的数量
+
+    Span* _next = nullptr;
+    Span* _prev = nullptr;
+
+    size_t usecount = 0;  // 切好的小块内存 被分配给 threadchace 使用的数量
+    void* _freeList = nullptr;
+    // 小块内存挂的链表
+};
+
+// 带头双向循环链表
+class SpanList
+{
+public:
+    SpanList()
+    {
+        _head = new Span;
+        _head->_next = _head;
+        _head->_prev = _head;
+    } // 初始化
+
+    void Insert(Span* pos, Span* newSpan)
+    {
+        assert(pos); // 别忘了断言
+        assert(newSpan);
+
+        // prev  newSpan  pos
+        Span* prev = pos->_prev;
+        prev->_next = newSpan;
+        newSpan ->_next = pos; 
+        pos->_prev = newSpan;
+    }
+
+    void Erase(Span* pos)
+    {
+        assert(pos);
+        assert(pos != _head);
+
+        Span* prev = pos->_prev;
+        prev->_next = pos->_next;
+        pos->_next->_prev = prev;
+
+    }
+
+private:
+    Span* _head;
+public:
+    std::mutex _mtx;  // 桶锁 
+};
+
