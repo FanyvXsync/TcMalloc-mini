@@ -266,6 +266,21 @@ public:
         return _head->_prev;
     }
 
+    bool Empty()
+    {
+        return _head->_next == _head;
+    }
+
+
+    Span* PopFront()
+    {
+        Span* ret = _head->_next;
+        ret->_next->_prev = _head;
+        _head->_next = ret->_next;
+
+        return ret;
+    }
+
 private:
     Span* _head;
 public:

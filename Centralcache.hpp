@@ -4,10 +4,10 @@
 
 // 单例 一个 内存池只有一个
 // 饿汉
-class Centralcache
+class CentralCache
 {
 public:
-    static Centralcache* GetInstance()
+    static CentralCache* GetInstance()
     {
         return &_Inst;
     }
@@ -22,8 +22,8 @@ private:
     SpanList _spanList[NFREELIST];
 
 private:
-    Centralcache() {}
-    Centralcache(const Centralcache& ch) = delete;
+    CentralCache() {}
+    CentralCache(const CentralCache& ch) = delete;
 
-    static Centralcache _Inst;
+    static CentralCache _Inst;
 };

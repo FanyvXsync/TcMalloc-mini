@@ -16,7 +16,7 @@ public:
 
     std::mutex _pageMtx;  // 大锁
 private:
-    SpanList _spanList[NPAGES];
+    SpanList _spanLists[NPAGES];
 
 
 private:

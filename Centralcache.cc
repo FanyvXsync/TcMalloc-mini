@@ -1,11 +1,11 @@
 #include "Centralcache.hpp"
 #include "PageCache.hpp"
 
-Centralcache Centralcache::_Inst;
+CentralCache CentralCache::_Inst;
 
 
 // 从 centralcache 拿 对象 给 threadcache
-size_t Centralcache::FetchRangeObj(void*& start, void*& end, size_t batchNum, size_t size)
+size_t CentralCache::FetchRangeObj(void*& start, void*& end, size_t batchNum, size_t size)
 {
     size_t index = SizeClass::Index(size); // 给 size 定 下标的
     _spanList[index]._mtx.lock();
@@ -38,7 +38,7 @@ size_t Centralcache::FetchRangeObj(void*& start, void*& end, size_t batchNum, si
 }
 
 
-Span* Centralcache::GetOneSpan(SpanList& spanlist, size_t size)
+Span* CentralCache::GetOneSpan(SpanList& spanlist, size_t size)
 {
     // 先检查当前 spanlist 中有没有 没用完的 span
     Span* it = spanlist.Begin();
@@ -59,7 +59,7 @@ Span* Centralcache::GetOneSpan(SpanList& spanlist, size_t size)
     spanlist._mtx.unlock();
 
     PageCache::GetInstance()->_pageMtx.lock();
-    Span* span = PageCache::GetInstance->NewSpan(SizeClass::NumMoveSize(size));
+    Span* span = PageCache::GetInstance()->NewSpan(SizeClass::NumMoveSize(size));
     PageCache::GetInstance()->_pageMtx.unlock();
 
     // 切分 span 不用加锁
