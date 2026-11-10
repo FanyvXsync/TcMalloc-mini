@@ -3,6 +3,7 @@
 #include <assert.h>
 #include <vector>
 #include <mutex>
+#include "ObjectPool.hpp"
 
 using std::cout;
 using std::endl;
@@ -141,8 +142,8 @@ public:
         }
         else
         {
-            assert(false);
-            return -1;
+            return _RoundUp(size, 1 << PAGE_SHIFT);
+            // 大于 256 k  以页为单位对齐
         }
 
     } 

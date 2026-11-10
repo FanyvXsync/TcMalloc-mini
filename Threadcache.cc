@@ -72,5 +72,5 @@ void ThreadCache::ListTooLong(FreeList& list, size_t size)
 
     list.PopRange(start, end, list.MaxSize());
 
-    CentralCache::GetInstance()->ReleaseListToSpan(start, size);
+    CentralCache::GetInstance()->ReleaseObjToSpan(start, size);
 }

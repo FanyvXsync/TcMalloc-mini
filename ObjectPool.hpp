@@ -25,11 +25,22 @@ static inline void* SystemAlloc(size_t kpage)
 
     return ptr;
 
-} 
+}
+
+
+static inline void SystemFree(void* ptr)
+{
+#ifdef _WIN32
+    VirtualFree(ptr, 0 , MEM_RELEASE);
+#else
+
+#endif 
+
+}
 
 
 template<class T>
-class ObjectPoll
+class ObjectPool
 {
 
 public:

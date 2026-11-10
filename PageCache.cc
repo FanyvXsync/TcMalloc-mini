@@ -6,9 +6,31 @@ Span* PageCache::NewSpan(size_t k)
 {
     assert(k > 0 && k < NPAGES);
 
+    if(k > NPAGES - 1)
+    {
+        void* ptr = SystemAlloc(k);
+        //
+        Span* span = _spanPool.New();
+        span->_pageId = (PAGE_ID) ptr >> PAGE_SHIFT;
+        span->_n = k;
+
+        _idSpanMap[span->_pageId] = span;
+        return span;
+    }
+
+
+
     if(!_spanLists[k].Empty())
     {
-        return _spanLists[k].PopFront();
+        Span* kspan = _spanLists[k].PopFront();
+        // id 和 span 的映射
+
+        for(PAGE_ID i = 0; i < kspan->_n; i++)
+        {
+            _idSpanMap[kspan->_pageId + i] = kspan;
+        }
+
+        return kspan;
     }
 
     // 这个桶是空的 用大块 span 来切
@@ -18,7 +40,7 @@ Span* PageCache::NewSpan(size_t k)
         if(!_spanLists[i].Empty())
         {
             Span* nSpan = _spanLists[i].PopFront();
-            Span* kSpan = new Span;
+            Span* kSpan = _spanPool.New();
 
             // 从 nSpan 头上切 k 页下来
             kSpan->_pageId = nSpan->_pageId;
@@ -43,7 +65,7 @@ Span* PageCache::NewSpan(size_t k)
     }
 
     // 没有 更大的 Span 了 找堆要一个 最大的
-    Span* bigSpan = new Span;
+    Span* bigSpan = _spanPool.New();
     void* ptr = malloc(NPAGES - 1 * 8 * 1024);
 
     bigSpan->_pageId = (PAGE_ID)ptr >> PAGE_SHIFT;
@@ -75,6 +97,18 @@ Span* PageCache::MapObjToSpan(void* obj)
 
 void PageCache::ReleaseSpanToPageCache(Span* span)
 {
+    // 大于 128 页的 直接还给堆
+    if(span->_n > NPAGES - 1)
+    {
+        void* ptr = (void*)(span->_pageId << PAGE_SHIFT);
+        SystemFree(ptr);
+    
+        _spanPool.Delete(span);
+        return ;
+    }
+    
+    
+    
     //对 span 前后的页进行合并 缓解内存碎片
     while(1)
     {
@@ -103,7 +137,7 @@ void PageCache::ReleaseSpanToPageCache(Span* span)
         span->_n += prevSpan->_n;
         
         _spanLists[prevSpan->_n].Erase(prevSpan);
-        delete prevSpan; // ?
+        _spanPool.Delete(prevSpan); // ?
     }
 
     while (1)
@@ -129,7 +163,7 @@ void PageCache::ReleaseSpanToPageCache(Span* span)
 		span->_n += nextSpan->_n;
 
 		_spanLists[nextSpan->_n].Erase(nextSpan);
-		delete nextSpan; // ?
+		_spanPool.Delete(nextSpan); // ?
 	}
 
     _spanLists[span->_n].PushFront(span);
