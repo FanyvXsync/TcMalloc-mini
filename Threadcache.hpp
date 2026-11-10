@@ -11,6 +11,8 @@ public:
     // 从 cnetral cache 获取
     void* FetachFromCentralCache(size_t index, size_t size);
 
+    void ListTooLong(FreeList& list, size_t size);
+
 private:
     FreeList _freeList[NFREELIST];
 };

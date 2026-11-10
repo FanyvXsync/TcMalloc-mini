@@ -38,6 +38,7 @@ public:
         
         NextObj(ptr) = _freeList;
         _freeList = ptr;
+        _size++;
     }
     
 
@@ -47,7 +48,7 @@ public:
 
         void* ret = _freeList;
         _freeList = NextObj(_freeList);
-        
+        _size--;
         return ret;
     }
 
@@ -61,16 +62,38 @@ public:
         return _maxSize;
     }
 
-    void PushRange(void* start, void* end)
+    void PushRange(void* start, void* end, size_t n)
     {
         NextObj(end) = _freeList;
         _freeList = start;
+        
+        _size += n;
     }
 
+    void PopRange(void*& start, void*& end, size_t size)
+    {
+        start = _freeList;
+        end = _freeList;
+        size_t i = 0;
+        while(i < size)
+        {
+            end = NextObj(end);
+        }
+
+        _freeList = NextObj(end);
+        NextObj(end) = nullptr;
+        _size -= size;
+    }
+
+    size_t Size()
+    {
+        return _size;
+    }
 
 private:
     void* _freeList = nullptr;
     size_t _maxSize = 1;  // 慢启动的时候去调节的
+    size_t _size;
 };
 
 // 计算对象大小 对齐
@@ -208,9 +231,12 @@ struct Span
     Span* _next = nullptr;
     Span* _prev = nullptr;
 
-    size_t usecount = 0;  // 切好的小块内存 被分配给 threadchace 使用的数量
+    size_t _usecount = 0;  // 切好的小块内存 被分配给 threadchace 使用的数量
     void* _freeList = nullptr;
     // 小块内存挂的链表
+
+    bool _isUse = false;
+
 };
 
 // 带头双向循环链表

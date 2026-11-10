@@ -18,6 +18,10 @@ public:
     //给 thread cache 对象
     size_t FetchRangeObj(void*& start, void*&end, size_t batchNum,  size_t size);
 
+
+    //threadcache 还给 centralcache
+    void ReleaseObjToSpan(void* start,  size_t size);
+
 private:
     SpanList _spanList[NFREELIST];
 

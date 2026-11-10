@@ -31,6 +31,7 @@ size_t CentralCache::FetchRangeObj(void*& start, void*& end, size_t batchNum, si
 
     span->_freeList = NextObj(end); // 拿完了以后更新一个 freeList
     NextObj(end) = nullptr;
+    span->_usecount += actualNum;
 
     _spanList[index]._mtx.unlock();
 
@@ -60,6 +61,7 @@ Span* CentralCache::GetOneSpan(SpanList& spanlist, size_t size)
 
     PageCache::GetInstance()->_pageMtx.lock();
     Span* span = PageCache::GetInstance()->NewSpan(SizeClass::NumMoveSize(size));
+    span->_isUse = true;
     PageCache::GetInstance()->_pageMtx.unlock();
 
     // 切分 span 不用加锁
@@ -91,4 +93,51 @@ Span* CentralCache::GetOneSpan(SpanList& spanlist, size_t size)
     spanlist.PushFront(span);
 
     return span;
+}
+
+void CentralCache::ReleaseObjToSpan(void* start, size_t size)
+{   
+    assert(start);
+    assert(size < MAX_BYTES);
+
+    size_t index = SizeClass::Index(size);
+    // 桶锁
+    _spanList[index]._mtx.lock();
+
+    while(start)
+    {
+        void* next = NextObj(start);
+
+        Span* span = PageCache::GetInstance()->MapObjToSpan(start);
+        // 通过 pagecache 里面的 hash 找到这个 obj 属于那个 span
+
+        NextObj(start) = span->_freeList;
+        span->_freeList = start;
+        span->_usecount--;
+
+        // 这个 span 的小块内存都回来了 整个 span 还给 pagecache
+        if(span->_usecount == 0)
+        {
+            _spanList[index].Erase(span);
+            span->_freeList = nullptr;
+            span->_next = nullptr;
+            span->_prev = nullptr;
+            
+            // 解桶锁 别的线程可以操作这个桶
+            // 锁上 pagecache 的锁
+
+            _spanList[index]._mtx.unlock();
+            
+            PageCache::GetInstance()->_pageMtx.lock();
+            PageCache::GetInstance()->ReleaseSpanToPageCache(span);
+            PageCache::GetInstance()->_pageMtx.unlock();
+
+            _spanList[index]._mtx.lock();
+        }
+
+        start = next;
+    }
+     
+    _spanList[index]._mtx.unlock();
+
 }

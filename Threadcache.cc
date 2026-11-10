@@ -24,6 +24,15 @@ void ThreadCache::Deallocate(void* ptr, size_t size)
     // 释放的话就找到 hash 桶链接进去
     size_t index = SizeClass::Index(size);
     _freeList[index].PushFront(ptr);
+
+    // 当链表长度 大于一次批量申请的内存的时候 就可以还了
+
+    if(_freeList[index].Size() >= _freeList[index].MaxSize())
+    {
+        ListTooLong(_freeList[index], size);
+    }
+
+
 }
 
 void* ThreadCache::FetachFromCentralCache(size_t index, size_t size)
@@ -50,8 +59,18 @@ void* ThreadCache::FetachFromCentralCache(size_t index, size_t size)
     }
     else
     {
-        _freeList[index].PushRange(NextObj(start), end); 
+        _freeList[index].PushRange(NextObj(start), end, actualNum); 
         return start;
     }
 
+}
+
+void ThreadCache::ListTooLong(FreeList& list, size_t size)
+{
+    void* start = nullptr;
+    void* end = nullptr;
+
+    list.PopRange(start, end, list.MaxSize());
+
+    CentralCache::GetInstance()->ReleaseListToSpan(start, size);
 }
