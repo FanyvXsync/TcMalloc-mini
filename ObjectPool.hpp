@@ -47,34 +47,42 @@ public:
 
     T* New()
     {
+        
+        T* obj = nullptr;
+
         if(_freelist)
         {
             void* next = _freelist;
             _freelist = *(void**)next;;
-            return (T*)next;
+            obj = (T*) next;
         }
-
-        size_t tsize = sizeof(T);
-        tsize = std::max(tszie, sizeof(void*));
-
-        if(_remainBytes < tsize)
+        else 
         {
-            _remainBytes = 8 * 1024;
-            _memory = (char*)SystemAlloc(_remainBytes >> 13);
-            
-            if(_memory == nullptr)
+
+            size_t tsize = sizeof(T);
+            tsize = std::max(tsize, sizeof(void*));
+            if(_remainBytes < tsize)
             {
-                throw std::bad_alloc();
+                _remainBytes = 8 * 1024;
+                _memory = (char*)SystemAlloc(_remainBytes >> 13);
+            
+                if(_memory == nullptr)
+                {
+                    throw std::bad_alloc();
+                }
+            
             }
+            
+            obj = (T*)_memory;
+            _memory += tsize;
+            _remainBytes -= tsize;
+
         }
 
-        T* res = (T*)_memory;
-        _memory += tsize;
-        _remainBytes -= tszie;
-
-        new(res) T;
+      
+        new(obj) T;
         
-        return res;
+        return obj;
     }
 
 

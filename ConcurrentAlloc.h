@@ -19,6 +19,8 @@ static void* ConcurrentAlloc(size_t size)
 
         PageCache::GetInstance()->_pageMtx.lock();
         Span* span = PageCache::GetInstance()->NewSpan(kpage);
+        span->_objSize = size;
+        span->_isUse = true;
         PageCache::GetInstance()->_pageMtx.unlock();
         void* ptr = (void*) (span->_pageId << PAGE_SHIFT);
 

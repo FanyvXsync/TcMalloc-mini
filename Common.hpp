@@ -77,9 +77,10 @@ public:
         start = _freeList;
         end = _freeList;
         size_t i = 0;
-        while(i < size)
+        while(i < size - 1)
         {
             end = NextObj(end);
+            ++i;
         }
 
         _freeList = NextObj(end);
@@ -95,7 +96,7 @@ public:
 private:
     void* _freeList = nullptr;
     size_t _maxSize = 1;  // 慢启动的时候去调节的
-    size_t _size;
+    size_t _size = 0;
 };
 
 // 计算对象大小 对齐
@@ -174,7 +175,7 @@ public:
         }
         else if(bytes <= 8 * 1024)
         {
-            return _Index(bytes  - 1024, 10) + group_array[0] + group_array[1];
+            return _Index(bytes  - 1024, 7) + group_array[0] + group_array[1];
         }
         else if (bytes <= 64 * 1024)
         {
@@ -264,6 +265,7 @@ public:
         prev->_next = newSpan;
         newSpan ->_next = pos; 
         pos->_prev = newSpan;
+        newSpan->_prev = prev;
     }
 
     void Erase(Span* pos)
@@ -284,6 +286,7 @@ public:
         
         next->_prev = span;
         span->_prev = _head;
+        _head->_next = span;
     }
 
     Span* Begin()
@@ -293,7 +296,7 @@ public:
 
     Span* End()
     {
-        return _head->_prev;
+        return _head;
     }
 
     bool Empty()

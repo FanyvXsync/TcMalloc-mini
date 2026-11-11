@@ -21,7 +21,7 @@ size_t CentralCache::FetchRangeObj(void*& start, void*& end, size_t batchNum, si
     end = start;
 
     size_t i = 0;
-    size_t actualNum = 0;
+    size_t actualNum = 1;
     while(i < batchNum - 1 && NextObj(end) != nullptr)
     {
         end = NextObj(end);
@@ -60,13 +60,13 @@ Span* CentralCache::GetOneSpan(SpanList& spanlist, size_t size)
     spanlist._mtx.unlock();
 
     PageCache::GetInstance()->_pageMtx.lock();
-    Span* span = PageCache::GetInstance()->NewSpan(SizeClass::NumMoveSize(size));
+    Span* span = PageCache::GetInstance()->NewSpan(SizeClass::NumMovePage(size));
     span->_isUse = true;
     PageCache::GetInstance()->_pageMtx.unlock();
 
     // 切分 span 不用加锁
     // 别的线程不会访问到这个 span 不是 临界资源
-    
+    span->_objSize = size;
     // 切分 span ,  先确定大块内存起始地址 和 大块内存的大小(字节)
     char* start = (char*)(span->_pageId << PAGE_SHIFT);  // ?
     size_t bytes = span->_n << PAGE_SHIFT;
@@ -80,13 +80,15 @@ Span* CentralCache::GetOneSpan(SpanList& spanlist, size_t size)
 
     void* tail = span->_freeList;
     int i = 1;
-    while(start < end)
+    while(start < end && (end - start) >= size)
     {
         ++i;
         NextObj(tail) = start;
         tail = NextObj(tail);
         start += size;
     }
+
+    NextObj(tail) = nullptr;
 
     // 切好 span 以后 挂到同里面的时候 再加锁
     spanlist._mtx.lock();
@@ -98,7 +100,7 @@ Span* CentralCache::GetOneSpan(SpanList& spanlist, size_t size)
 void CentralCache::ReleaseObjToSpan(void* start, size_t size)
 {   
     assert(start);
-    assert(size < MAX_BYTES);
+    assert(size <= MAX_BYTES);
 
     size_t index = SizeClass::Index(size);
     // 桶锁

@@ -3,7 +3,7 @@
 
 void* ThreadCache::Allocate(size_t size)
 {
-    assert(size < MAX_BYTES);
+    assert(size <= MAX_BYTES);
 
     size_t alignsize = SizeClass::RoundUp(size);
     size_t index = SizeClass::Index(alignsize);
@@ -59,7 +59,7 @@ void* ThreadCache::FetachFromCentralCache(size_t index, size_t size)
     }
     else
     {
-        _freeList[index].PushRange(NextObj(start), end, actualNum); 
+        _freeList[index].PushRange(NextObj(start), end, actualNum - 1); 
         return start;
     }
 

@@ -4,7 +4,7 @@ PageCache PageCache::_sInst;
 
 Span* PageCache::NewSpan(size_t k)
 {
-    assert(k > 0 && k < NPAGES);
+    assert(k > 0);
 
     if(k > NPAGES - 1)
     {
@@ -27,7 +27,7 @@ Span* PageCache::NewSpan(size_t k)
 
         for(PAGE_ID i = 0; i < kspan->_n; i++)
         {
-            _idSpanMap.set(kspan->_pageId + 1, kspan);
+            _idSpanMap.set(kspan->_pageId + i, kspan);
         }
 
         return kspan;
@@ -66,7 +66,7 @@ Span* PageCache::NewSpan(size_t k)
 
     // 没有 更大的 Span 了 找堆要一个 最大的
     Span* bigSpan = _spanPool.New();
-    void* ptr = malloc(NPAGES - 1 * 8 * 1024);
+    void* ptr = SystemAlloc(NPAGES - 1);
 
     bigSpan->_pageId = (PAGE_ID)ptr >> PAGE_SHIFT;
     bigSpan->_n = NPAGES - 1;
@@ -105,8 +105,9 @@ void PageCache::ReleaseSpanToPageCache(Span* span)
     if(span->_n > NPAGES - 1)
     {
         void* ptr = (void*)(span->_pageId << PAGE_SHIFT);
+        
+        _idSpanMap.set(span->_pageId, nullptr);
         SystemFree(ptr);
-    
         _spanPool.Delete(span);
         return ;
     }
