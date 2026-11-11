@@ -14,7 +14,7 @@ Span* PageCache::NewSpan(size_t k)
         span->_pageId = (PAGE_ID) ptr >> PAGE_SHIFT;
         span->_n = k;
 
-        _idSpanMap[span->_pageId] = span;
+        _idSpanMap.set(span->_pageId, span);
         return span;
     }
 
@@ -27,7 +27,7 @@ Span* PageCache::NewSpan(size_t k)
 
         for(PAGE_ID i = 0; i < kspan->_n; i++)
         {
-            _idSpanMap[kspan->_pageId + i] = kspan;
+            _idSpanMap.set(kspan->_pageId + 1, kspan);
         }
 
         return kspan;
@@ -52,12 +52,12 @@ Span* PageCache::NewSpan(size_t k)
             _spanLists[nSpan->_n].PushFront(nSpan);
             
             // 放首尾进去
-            _idSpanMap[nSpan->_pageId] = nSpan;
-            _idSpanMap[nSpan->_pageId + nSpan->_n - 1] = nSpan;
+            _idSpanMap.set(nSpan->_pageId, nSpan);
+            _idSpanMap.set(nSpan->_pageId + nSpan->_n - 1, nSpan);
 
             for(PAGE_ID i = 0; i < kSpan->_n; ++i)
             {
-                _idSpanMap[kSpan->_pageId + i] = kSpan;
+                _idSpanMap.set(kSpan->_pageId + i, kSpan);
             }
 
             return kSpan;
@@ -72,7 +72,7 @@ Span* PageCache::NewSpan(size_t k)
     bigSpan->_n = NPAGES - 1;
 
     _spanLists[bigSpan->_n].PushFront(bigSpan);
-    _idSpanMap[bigSpan->_pageId] = bigSpan;
+    _idSpanMap.set(bigSpan->_pageId, bigSpan);
 
     return NewSpan(k);   // 递归调用一下自己  锁 在 centralcache的时候 不会死锁
 }   
@@ -82,17 +82,21 @@ Span* PageCache::MapObjToSpan(void* obj)
 {
     PAGE_ID pageId =  PAGE_ID(obj) >> PAGE_SHIFT;
 
-    auto ret = _idSpanMap.find(pageId);
-    if(ret != _idSpanMap.end())
-    {
-        return ret->second;
-    }
-    else
-    {
-        assert(false);
-        return nullptr;
-    }
+    // std::unique_lock<std::mutex> lock(_pageMtx);
+    // // auto ret = _idSpanMap.find(pageId);
+    // if(ret != _idSpanMap.end())
+    // {
+    //     return ret->second;
+    // }
+    // else
+    // {
+    //     assert(false);
+    //     return nullptr;
+    // }
 
+    auto ret = (Span*)_idSpanMap.get(pageId);
+    assert(ret != nullptr);
+    return ret;
 }
 
 void PageCache::ReleaseSpanToPageCache(Span* span)
@@ -113,15 +117,16 @@ void PageCache::ReleaseSpanToPageCache(Span* span)
     while(1)
     {
         PAGE_ID prevId = span->_pageId - 1;
-        auto ret = _idSpanMap.find(prevId);
+        // auto ret = _idSpanMap.find(prevId);
+        auto ret = (Span*)_idSpanMap.get(prevId); 
         
-        if(ret == _idSpanMap.end())
+        if(ret == nullptr)
         {
             break;
         }
 
         // 正在使用  不合并
-        Span* prevSpan = ret->second;
+        Span* prevSpan = ret;
         if(prevSpan->_isUse)
         {
             break;
@@ -143,13 +148,13 @@ void PageCache::ReleaseSpanToPageCache(Span* span)
     while (1)
 	{
 		PAGE_ID nextId = span->_pageId + span->_n;
-		auto ret = _idSpanMap.find(nextId);
-		if (ret == _idSpanMap.end())
+		auto ret = (Span*)_idSpanMap.get(nextId);
+		if (ret == nullptr)
 		{
 			break;
 		}
 
-		Span* nextSpan = ret->second;
+		Span* nextSpan = ret;
 		if (nextSpan->_isUse == true)
 		{
 			break;
@@ -168,6 +173,6 @@ void PageCache::ReleaseSpanToPageCache(Span* span)
 
     _spanLists[span->_n].PushFront(span);
     span->_isUse = false;
-    _idSpanMap[span->_pageId] = span;
-    _idSpanMap[span->_pageId + span->_n - 1] = span;
+    _idSpanMap.set(span->_pageId, span);
+    _idSpanMap.set(span->_pageId + span->_n - 1, span);
 }

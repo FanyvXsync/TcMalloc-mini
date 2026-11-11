@@ -24,23 +24,31 @@ static void* ConcurrentAlloc(size_t size)
 
         return ptr;
     }
-
-
-    if(pTLSThreadCache == nullptr)
+    else
     {
-        pTLSThreadCache = new ThreadCache;
+        if(pTLSThreadCache == nullptr)
+        {
+            static ObjectPool<ThreadCache> tcPool;
+            pTLSThreadCache = tcPool.New();
+        }
+
     }
 
-    cout << std::this_thread::get_id() << ":" << pTLSThreadCache << endl; 
+    
+
+    //cout << std::this_thread::get_id() << ":" << pTLSThreadCache << endl; 
     return pTLSThreadCache->Allocate(size);
 }
 
-static void ConcurrentFree(void* ptr, size_t size)
+static void ConcurrentFree(void* ptr)
 {
+    Span* span = PageCache::GetInstance()->MapObjToSpan(ptr);
+    size_t size = span->_objSize;
+
     if(size > MAX_BYTES)
     {
         PageCache::GetInstance()->_pageMtx.lock();
-        Span* span = PageCache::GetInstance()->MapObjToSpan(ptr);
+        
         PageCache::GetInstance()->ReleaseSpanToPageCache(span);
         PageCache::GetInstance()->_pageMtx.unlock();
     }

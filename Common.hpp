@@ -4,6 +4,7 @@
 #include <vector>
 #include <mutex>
 #include "ObjectPool.hpp"
+#include <atomic>
 
 using std::cout;
 using std::endl;
@@ -237,6 +238,8 @@ struct Span
     // 小块内存挂的链表
 
     bool _isUse = false;
+
+    size_t _objSize = 0;
 
 };
 
